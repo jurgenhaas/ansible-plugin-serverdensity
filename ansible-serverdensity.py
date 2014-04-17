@@ -249,6 +249,12 @@ class ServerDensity(object):
                 return host.get('_id')
         return False
 
+    def _get_service_id(self, servicename):
+        for service in self.services:
+            if service.get('name') == servicename:
+                return service.get('_id')
+        return False
+
     def status(self):
         self.devices = self._request('inventory/devices')
         self.services = self._request('inventory/services')
@@ -278,6 +284,14 @@ class ServerDensity(object):
         else:
             path = 'inventory/devices/' + deviceId
         self._request(path, data)
+
+    def ensure_service(self, servicename, service):
+        serviceId = self._get_service_id(servicename)
+        if not serviceId:
+            path = 'inventory/services'
+        else:
+            path = 'inventory/services/' + serviceId
+        self._request(path, service)
 
 ########################################################
 if __name__ == '__main__':
@@ -312,6 +326,9 @@ if __name__ == '__main__':
     except Exception, e:
         raise errors.AnsibleError('%s' % e.msg)
 
+    services = {}
+    alerts = {}
+
     callbacks.display('Ensure hosts and their data...')
     for host in results['contacted']:
         callbacks.display('  - ' + host)
@@ -320,6 +337,13 @@ if __name__ == '__main__':
         location = host_vars.get('location')
         if not location:
             location = {}
+
+        host_services = host_vars.get('sd_services')
+        if host_services:
+            for host_service in host_services:
+                name = host_service.get('name')
+                if not services.has_key(name):
+                    services.__setitem__(name, host_service)
 
         sd_api.ensure_host(
             cpuCores=facts['ansible_processor_count'],
@@ -343,3 +367,9 @@ if __name__ == '__main__':
             },
             provider=host_vars.get('provider')
         )
+
+    callbacks.display('Ensure services and their data...')
+    for servicename in services:
+        callbacks.display('  - ' + servicename)
+        service = services.get(servicename)
+        sd_api.ensure_service(servicename, service)
