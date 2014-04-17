@@ -255,11 +255,8 @@ class ServerDensity(object):
 
     def ensure_host(self, hostname, cpuCores=None, group=None, installedRAM=None,
                     name=None, os=None, privateIPs=None, privateDNS=None,
-                    publicIPs=None, publicDNS=None, swapSpace=None):
-        if not privateIPs: privateIPs = {}
-        if not privateDNS: privateDNS = {}
-        if not publicIPs: publicIPs = {}
-        if not publicDNS: publicDNS = {}
+                    publicIPs=None, publicDNS=None, swapSpace=None, location=None,
+                    provider=None):
         data = {
             'hostname': hostname,
             'cpuCores': cpuCores,
@@ -272,6 +269,8 @@ class ServerDensity(object):
             'publicIPs': publicIPs,
             'publicDNS': publicDNS,
             'swapSpace': swapSpace,
+            'location': location,
+            'provider': provider,
         }
         deviceId = self._get_device_id(hostname)
         if not deviceId:
@@ -318,6 +317,10 @@ if __name__ == '__main__':
         callbacks.display('  - ' + host)
         facts = results['contacted'][host]['ansible_facts']
         host_vars = ansible.host_vars(host)
+        location = host_vars.get('location')
+        if not location:
+            location = {}
+
         sd_api.ensure_host(
             cpuCores=facts['ansible_processor_count'],
             group=host_vars.get('sd_group'),
@@ -332,5 +335,11 @@ if __name__ == '__main__':
             # privateDNS=facts[''],
             publicIPs=facts['ansible_all_ipv4_addresses']+facts['ansible_all_ipv6_addresses'],
             # publicDNS=facts[''],
-            swapSpace=facts['ansible_swaptotal_mb']
+            swapSpace=facts['ansible_swaptotal_mb'],
+            location={
+                'countryCode': location.get('countryCode'),
+                'countryName': location.get('countryName'),
+                'text': location.get('text'),
+            },
+            provider=host_vars.get('provider')
         )
