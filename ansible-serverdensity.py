@@ -230,7 +230,7 @@ class ServerDensity(object):
                 if type(item) is list or type(item) is dict:
                     if len(item) > 0:
                         item = encoder.encode(item)
-                if type(item) is int or type(item) is unicode:
+                if type(item) is int or type(item) is unicode or type(item) is bool:
                     item = str(item)
                 if item and type(item) is str and len(item) > 0:
                     postData.__setitem__(key, item)
@@ -255,9 +255,26 @@ class ServerDensity(object):
                 return service.get('_id')
         return False
 
+    def _get_user_id(self, loginname):
+        for user in self.users:
+            if user.get('login') == loginname:
+                return user.get('_id')
+        return False
+
+    def _get_notification_id(self, type, name):
+        for notification in self.notifications:
+            if notification.get('type') == type and notification.get('name') == name:
+                return notification.get('_id')
+        return False
+
     def status(self):
         self.devices = self._request('inventory/devices')
         self.services = self._request('inventory/services')
+        self.alerts = self._request('alerts/configs')
+        self.users = self._request('users/users')
+        # TODO: Remove the following workaround if we can get the notifications from the API
+        with open(os.path.abspath(os.path.dirname(__file__) + '/notifications.json'), 'r') as content_file:
+            self.notifications = json.load(content_file)
 
     def ensure_host(self, hostname, cpuCores=None, group=None, installedRAM=None,
                     name=None, os=None, privateIPs=None, privateDNS=None,
@@ -284,6 +301,7 @@ class ServerDensity(object):
         else:
             path = 'inventory/devices/' + deviceId
         self._request(path, data)
+        # TODO: write back the HOST to self.devices if this is a new host
 
     def ensure_service(self, servicename, service):
         serviceId = self._get_service_id(servicename)
@@ -292,6 +310,49 @@ class ServerDensity(object):
         else:
             path = 'inventory/services/' + serviceId
         self._request(path, service)
+        # TODO: write back the SERVICE to self.services if this is a new service
+
+    def ensure_alert(self, alert, a_type):
+        alertId = alert.get('id')
+        if not alertId or len(alertId) == 0:
+            path = 'alerts/configs'
+        else:
+            path = 'alerts/configs/' + alertId
+
+        recipients = []
+        notify = alert.get('notify')
+        if notify:
+            for item in notify:
+                n_type = item['type']
+                n_name = item['name']
+                if n_type == 'user':
+                    id = self._get_user_id(n_name)
+                    actions = item['actions']
+                else:
+                    id = self._get_notification_id(n_type, n_name)
+                    actions = None
+                if id:
+                    recipients.append({
+                        'type': n_type,
+                        'id': id,
+                        'actions': actions,
+                    })
+
+        config = alert.get('config')
+        config.__setitem__('_id', alertId)
+        config.__setitem__('group', alert.get('group'))
+        if a_type == 'device' or a_type == 'serviceGroup':
+            config.__setitem__('subjectId', self._get_device_id(alert.get('host')))
+        elif a_type == 'service':
+            config.__setitem__('subjectId', self._get_service_id(alert.get('service')))
+        else:
+            config.__setitem__('subjectId', alert.get('group'))
+        config.__setitem__('subjectType', a_type)
+        config.__setitem__('recipients', recipients)
+        result = self._request(path, config)
+        if result.has_key('_id'):
+            if result.get('_id') != alertId:
+                callbacks.display('        ID for %s %s: %s' % (alert.get('group'), alert.get('name'), result.get('_id')))
 
 ########################################################
 if __name__ == '__main__':
@@ -327,9 +388,10 @@ if __name__ == '__main__':
         raise errors.AnsibleError('%s' % e.msg)
 
     services = {}
-    alerts = {}
+    devicegroup_alerts = {}
+    servicegroup_alerts = {}
 
-    callbacks.display('Ensure hosts and their data...')
+    callbacks.display('Ensure hosts...')
     for host in results['contacted']:
         callbacks.display('  - ' + host)
         facts = results['contacted'][host]['ansible_facts']
@@ -344,6 +406,30 @@ if __name__ == '__main__':
                 name = host_service.get('name')
                 if not services.has_key(name):
                     services.__setitem__(name, host_service)
+
+        host_devicegroup_alerts = host_vars.get('sd_devicegroup_alerts')
+        if host_devicegroup_alerts:
+            for host_devicegroup_alert in host_devicegroup_alerts:
+                group = host_devicegroup_alert.get('group')
+                name = host_devicegroup_alert.get('name')
+                if not devicegroup_alerts.has_key(group):
+                    devicegroup_alerts.__setitem__(group, {})
+                alerts = devicegroup_alerts.get(group)
+                if not alerts.has_key(name):
+                    alerts.__setitem__(name, host_devicegroup_alert)
+                    devicegroup_alerts.__setitem__(group, alerts)
+
+        host_servicegroup_alerts = host_vars.get('sd_servicegroup_alerts')
+        if host_servicegroup_alerts:
+            for host_servicegroup_alert in host_servicegroup_alerts:
+                group = host_servicegroup_alert.get('group')
+                name = host_servicegroup_alert.get('name')
+                if not servicegroup_alerts.has_key(group):
+                    servicegroup_alerts.__setitem__(group, {})
+                alerts = servicegroup_alerts.get(group)
+                if not alerts.has_key(name):
+                    alerts.__setitem__(name, host_servicegroup_alert)
+                    servicegroup_alerts.__setitem__(group, alerts)
 
         sd_api.ensure_host(
             cpuCores=facts['ansible_processor_count'],
@@ -368,8 +454,44 @@ if __name__ == '__main__':
             provider=host_vars.get('provider')
         )
 
-    callbacks.display('Ensure services and their data...')
+        alerts = host_vars.get('sd_alerts')
+        if alerts:
+            callbacks.display('    Ensure device alerts...')
+            for alertname in alerts:
+                callbacks.display('      - ' + alertname)
+                alert = alerts.get(alertname)
+                sd_api.ensure_alert(alert, 'device')
+
+    callbacks.display('Ensure device group alerts...')
+    for groupname in devicegroup_alerts:
+        callbacks.display('  - ' + groupname)
+        group_alerts = devicegroup_alerts.get(groupname)
+        for alertname in group_alerts:
+            callbacks.display('    - ' + alertname)
+            alert = group_alerts.get(alertname)
+            sd_api.ensure_alert(alert, 'deviceGroup')
+
+    callbacks.display('Ensure services...')
     for servicename in services:
         callbacks.display('  - ' + servicename)
         service = services.get(servicename)
         sd_api.ensure_service(servicename, service)
+        alerts = service.get('alerts')
+        if alerts:
+            callbacks.display('    Ensure service alerts...')
+            for alertname in alerts:
+                callbacks.display('      - ' + alertname)
+                alert = alerts.get(alertname)
+                sd_api.ensure_alert(alert, 'service')
+
+    callbacks.display('Ensure service group alerts...')
+    for groupname in servicegroup_alerts:
+        callbacks.display('  - ' + groupname)
+        group_alerts = servicegroup_alerts.get(groupname)
+        for alertname in group_alerts:
+            callbacks.display('    - ' + alertname)
+            alert = group_alerts.get(alertname)
+            sd_api.ensure_alert(alert, 'serviceGroup')
+
+    callbacks.display('Completed successfully!')
+    sys.exit(0)
