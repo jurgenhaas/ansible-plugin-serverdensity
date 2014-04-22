@@ -221,10 +221,12 @@ class ServerDensity(object):
         self.devices = {}
         self.services = {}
 
-    def _request(self, path, data = None):
+    def _request(self, path, data = None, method = 'GET'):
         encoder = json.JSONEncoder()
+        postData = {}
+
         if data:
-            postData = {}
+            method = 'POST'
             for key in data:
                 item = data.get(key)
                 if type(item) is list or type(item) is dict:
@@ -234,9 +236,14 @@ class ServerDensity(object):
                     item = str(item)
                 if item and type(item) is str and len(item) > 0:
                     postData.__setitem__(key, item)
-            result = requests.post('https://api.serverdensity.io/' + path, params = {'token': self.api_token}, data = postData)
-        else:
+
+        if method == 'GET':
             result = requests.get('https://api.serverdensity.io/' + path, params = {'token': self.api_token})
+        elif method == 'POST':
+            result = requests.post('https://api.serverdensity.io/' + path, params = {'token': self.api_token}, data = postData)
+        elif method == 'DELETE':
+            result = requests.delete('https://api.serverdensity.io/' + path, params = {'token': self.api_token})
+
         decoder = json.JSONDecoder()
         content = decoder.decode(result.content)
         if result.status_code != 200:
@@ -259,6 +266,35 @@ class ServerDensity(object):
         for user in self.users:
             if user.get('login') == loginname:
                 return user.get('_id')
+        return False
+
+    def _get_alert_id(self, subjectType, subjectId, section, field, comparison, value):
+        candidates = []
+        found_alert = False
+        for alert in self.alerts:
+            if not alert.get('ansible_updated'):
+                if alert.get('subjectType') == subjectType and alert.get('subjectId') == subjectId and alert.get('section') == section and alert.get('field') == field:
+                    candidates.append(alert)
+
+        if len(candidates) == 1:
+            found_alert = candidates.pop(0)
+        elif len(candidates) > 1:
+            level = -1
+            check_level = 0
+            for check_alert in candidates:
+                if check_alert.get('comparison') == comparison:
+                    check_level += 1
+                if check_alert.get('value') == value:
+                    check_level += 2
+
+                if check_level > level:
+                    level = check_level
+                    found_alert = check_alert
+
+        if found_alert:
+            found_alert.__setitem__('ansible_updated', True)
+            return found_alert.get('_id')
+
         return False
 
     def _get_notification_id(self, type, name):
@@ -312,13 +348,7 @@ class ServerDensity(object):
         self._request(path, service)
         # TODO: write back the SERVICE to self.services if this is a new service
 
-    def ensure_alert(self, alert, a_type):
-        alertId = alert.get('id')
-        if not alertId or len(alertId) == 0:
-            path = 'alerts/configs'
-        else:
-            path = 'alerts/configs/' + alertId
-
+    def ensure_alert(self, alert, a_type, group=None):
         recipients = []
         notify = alert.get('notify')
         if notify:
@@ -339,23 +369,37 @@ class ServerDensity(object):
                     })
 
         config = alert.get('config')
-        config.__setitem__('_id', alertId)
-        config.__setitem__('group', alert.get('group'))
-        if a_type == 'device' or a_type == 'serviceGroup':
+        config.__setitem__('group', group)
+        if a_type == 'device':
             config.__setitem__('subjectId', self._get_device_id(alert.get('host')))
         elif a_type == 'service':
             config.__setitem__('subjectId', self._get_service_id(alert.get('service')))
         else:
-            config.__setitem__('subjectId', alert.get('group'))
+            config.__setitem__('subjectId', group)
         config.__setitem__('subjectType', a_type)
         config.__setitem__('recipients', recipients)
-        result = self._request(path, config)
-        if result.has_key('_id'):
-            if result.get('_id') != alertId:
-                callbacks.display('        ID for %s %s: %s' % (alert.get('group'), alert.get('name'), result.get('_id')))
+
+        alertId = self._get_alert_id(config.get('subjectType'), config.get('subjectId'),
+                                     config.get('section'), config.get('field'),
+                                     config.get('comparison'), config.get('value'))
+        if not alertId or len(alertId) == 0:
+            path = 'alerts/configs'
+        else:
+            path = 'alerts/configs/' + alertId
+
+        config.__setitem__('_id', alertId)
+        self._request(path, config)
+
+    def cleanup_alerts(self):
+        for alert in self.alerts:
+            updated = alert.get('ansible_updated')
+            if not updated:
+                self._request('alerts/configs/' + alert.get('_id'), method='DELETE')
 
 ########################################################
 if __name__ == '__main__':
+    C.DEFAULT_HASH_BEHAVIOUR = 'merge'
+
     callbacks.display("", log_only=True)
     callbacks.display(" ".join(sys.argv), log_only=True)
     callbacks.display("", log_only=True)
@@ -407,33 +451,35 @@ if __name__ == '__main__':
                 if not services.has_key(name):
                     services.__setitem__(name, host_service)
 
+        host_group = host_vars.get('sd_group')
+        if not host_group:
+            host_group = 'All others'
+
         host_devicegroup_alerts = host_vars.get('sd_devicegroup_alerts')
         if host_devicegroup_alerts:
-            for host_devicegroup_alert in host_devicegroup_alerts:
-                group = host_devicegroup_alert.get('group')
-                name = host_devicegroup_alert.get('name')
-                if not devicegroup_alerts.has_key(group):
-                    devicegroup_alerts.__setitem__(group, {})
-                alerts = devicegroup_alerts.get(group)
+            for name in host_devicegroup_alerts:
+                host_devicegroup_alert = host_devicegroup_alerts.get(name)
+                if not devicegroup_alerts.has_key(host_group):
+                    devicegroup_alerts.__setitem__(host_group, {})
+                alerts = devicegroup_alerts.get(host_group)
                 if not alerts.has_key(name):
                     alerts.__setitem__(name, host_devicegroup_alert)
-                    devicegroup_alerts.__setitem__(group, alerts)
+                    devicegroup_alerts.__setitem__(host_group, alerts)
 
         host_servicegroup_alerts = host_vars.get('sd_servicegroup_alerts')
         if host_servicegroup_alerts:
-            for host_servicegroup_alert in host_servicegroup_alerts:
-                group = host_servicegroup_alert.get('group')
-                name = host_servicegroup_alert.get('name')
-                if not servicegroup_alerts.has_key(group):
-                    servicegroup_alerts.__setitem__(group, {})
-                alerts = servicegroup_alerts.get(group)
+            for name in host_servicegroup_alerts:
+                host_servicegroup_alert = host_servicegroup_alerts.get(name)
+                if not servicegroup_alerts.has_key(host_group):
+                    servicegroup_alerts.__setitem__(host_group, {})
+                alerts = servicegroup_alerts.get(host_group)
                 if not alerts.has_key(name):
                     alerts.__setitem__(name, host_servicegroup_alert)
-                    servicegroup_alerts.__setitem__(group, alerts)
+                    servicegroup_alerts.__setitem__(host_group, alerts)
 
         sd_api.ensure_host(
             cpuCores=facts['ansible_processor_count'],
-            group=host_vars.get('sd_group'),
+            group=host_group,
             hostname=host,
             installedRAM=facts['ansible_memtotal_mb'],
             name=host,
@@ -469,7 +515,7 @@ if __name__ == '__main__':
         for alertname in group_alerts:
             callbacks.display('    - ' + alertname)
             alert = group_alerts.get(alertname)
-            sd_api.ensure_alert(alert, 'deviceGroup')
+            sd_api.ensure_alert(alert, 'deviceGroup', groupname)
 
     callbacks.display('Ensure services...')
     for servicename in services:
@@ -491,7 +537,10 @@ if __name__ == '__main__':
         for alertname in group_alerts:
             callbacks.display('    - ' + alertname)
             alert = group_alerts.get(alertname)
-            sd_api.ensure_alert(alert, 'serviceGroup')
+            sd_api.ensure_alert(alert, 'serviceGroup', groupname)
+
+    callbacks.display('Cleanup unused alerts...')
+    sd_api.cleanup_alerts()
 
     callbacks.display('Completed successfully!')
     sys.exit(0)
