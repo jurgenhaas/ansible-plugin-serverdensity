@@ -1,7 +1,7 @@
 Ansible plugin for ServerDensity
 ================================
 
-This is an Ansible[1] plugin to manage your Ansible inventory over at Server Density[2]. It uses the APIs from ServerDensity[3] and from Ansible[4].
+This is an [Ansible] plugin to manage your Ansible inventory over at [Server Density]. It uses the [ServerDensity API] and the [Ansible API].
 
 ##Features##
 
@@ -43,20 +43,20 @@ Simply include a task like this:
         cache='/tmp/my_sd_cache'
 ```
 
-You may also be interested in a Server Density role[5] that I've written which in addition installs and configures the Server Density agent on your hosts and works in conjunction with this plugin as well.
+You may also be interested in a [Server Dernsity Role] that I've written which in addition installs and configures the Server Density agent on your hosts and works in conjunction with this plugin as well.
 
 ###From the ansible script###
 
 Your whole inventory gets synchronized with Server Density simply by using this command:
 
 ```
-ansible all -m serverdensity -a 'api_token=YOUR_TOPKEN_FROM_SD' -vv
+ansible all -m serverdensity -a 'api_token=YOUR_SD_TOKEN' -vv
 ```
 
 The final -vv parameter is inhancing the level of output on the console and with this plugin you'll get some quite useful information on what's going on in detail.
 
-[1]: http://www.ansible.com
-[2]: https://www.serverdensity.com
-[3]: https://apidocs.serverdensity.com
-[4]: http://docs.ansible.com/index.html
-[5]: https://github.com/jurgenhaas/ansible-role-serverdensity
+[Ansible]: http://www.ansible.com
+[Server Density]: https://www.serverdensity.com
+[ServerDensity API]: https://apidocs.serverdensity.com
+[Ansible API]: http://docs.ansible.com/index.html
+[Server Dernsity Role]: https://github.com/jurgenhaas/ansible-role-serverdensity
