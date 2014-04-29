@@ -87,13 +87,9 @@ class ActionModule(object):
             host_servicegroup_alerts = host_vars.get('sd_servicegroup_alerts')
             if host_servicegroup_alerts:
                 for name in host_servicegroup_alerts:
-                    host_servicegroup_alert = host_servicegroup_alerts.get(name)
-                    if not servicegroup_alerts.has_key(host_group):
-                        servicegroup_alerts.__setitem__(host_group, {})
-                    alerts = servicegroup_alerts.get(host_group)
-                    if not alerts.has_key(name):
-                        alerts.__setitem__(name, host_servicegroup_alert)
-                        servicegroup_alerts.__setitem__(host_group, alerts)
+                    if not servicegroup_alerts.has_key(name):
+                        host_servicegroup_alert = host_servicegroup_alerts.get(name)
+                        servicegroup_alerts.__setitem__(name, host_servicegroup_alert)
 
             self.ensure_host(
                 cpuCores=facts.get('ansible_processor_count', None),
@@ -146,16 +142,15 @@ class ActionModule(object):
                 for alertname in alerts:
                     vv('- - - ' + alertname)
                     alert = alerts.get(alertname)
+                    alert.__setitem__('service', service.get('name'))
                     self.ensure_alert(alert, 'service')
 
         vv('Ensure service group alerts...')
-        for groupname in servicegroup_alerts:
-            vv('- ' + groupname)
-            group_alerts = servicegroup_alerts.get(groupname)
-            for alertname in group_alerts:
-                vv('- - ' + alertname)
-                alert = group_alerts.get(alertname)
-                self.ensure_alert(alert, 'serviceGroup', groupname)
+        for servicegroupname in servicegroup_alerts:
+            vv('- ' + servicegroupname)
+            alert = servicegroup_alerts.get(servicegroupname)
+            groupname = alert.get('group')
+            self.ensure_alert(alert, 'serviceGroup', groupname)
 
         if cleanup:
             vv('Cleanup unused alerts...')
