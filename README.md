@@ -1,5 +1,5 @@
-Ansible plugin for ServerDensity
-================================
+Ansible plugin for Server Density
+=================================
 
 This is an [Ansible] plugin to manage your Ansible inventory over at [Server Density]. It uses the [ServerDensity API] and the [Ansible API].
 
@@ -25,7 +25,7 @@ There are plugin parameters to define how the plugin will behave:
 
 ##Installation##
 
-Download (or clone) the file serverdensity from the action_plugins directory and copy that into your custom action plugins directory which is defined in /etc/ansible/ansible.cfg. The default location for this is /usr/share/ansible_plugins/action_plugins
+Download (or clone) the file serverdensity.py from the action_plugins directory and copy that into your custom action plugins directory which is defined in /etc/ansible/ansible.cfg. The default location for this is /usr/share/ansible_plugins/action_plugins
 
 ##Usage##
 
@@ -43,7 +43,7 @@ Simply include a task like this:
         cache='/tmp/my_sd_cache'
 ```
 
-You may also be interested in a [Server Dernsity Role] that I've written which in addition installs and configures the Server Density agent on your hosts and works in conjunction with this plugin as well.
+You may also be interested in the [Server Density Role] that I've written which in addition installs and configures the Server Density agent on your hosts and synchronizes your inventory with Server Density by utilizing this plugin.
 
 ###From the ansible script###
 
@@ -55,8 +55,18 @@ ansible all -m serverdensity -a 'api_token=YOUR_SD_TOKEN' -vv
 
 The final -vv parameter is inhancing the level of output on the console and with this plugin you'll get some quite useful information on what's going on in detail.
 
+##Configuration##
+
+The following variables are required in order to use this plugin and you should define them somewhere in you inventory, e.g. in group_vars/all. Further configuration for device groups, services and alerts can be defined in variables too and they are fully documented in the [Wiki].
+
+###sd_url###
+
+Defines the Server Density URL of your account, e.g. ```'https://myaccount.serverdensity.io'```
+
+
 [Ansible]: http://www.ansible.com
 [Server Density]: https://www.serverdensity.com
 [ServerDensity API]: https://apidocs.serverdensity.com
 [Ansible API]: http://docs.ansible.com/index.html
-[Server Dernsity Role]: https://github.com/jurgenhaas/ansible-role-serverdensity
+[Server Density Role]: https://github.com/jurgenhaas/ansible-role-serverdensity
+[Wiki]: https://github.com/jurgenhaas/ansible-plugin-serverdensity/wiki
