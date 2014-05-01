@@ -390,11 +390,13 @@ class ActionModule(object):
                     id = self._get_notification_id(n_type, n_name)
                     actions = None
                 if id:
-                    recipients.append({
+                    n = {
                         'type': n_type,
                         'id': id,
-                        'actions': actions,
-                        })
+                        }
+                    if actions:
+                        n.__setitem__('actions', actions)
+                    recipients.append(n)
 
         config = alert.get('config')
         config.__setitem__('group', group)
