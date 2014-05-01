@@ -310,16 +310,20 @@ class ActionModule(object):
         self.list_alerts()
         self.list_users()
         self.list_notifications()
-        cache = {
-            'devices': self.devices,
-            'services': self.services,
-            'alerts': self.alerts,
-            'users': self.users,
-            'notifications': self.notifications,
-        }
+        self.cache_update(True)
+
+    def cache_update(self, force):
         if self.cache_file_name:
-            with open(self.cache_file_name, 'w') as cache_file:
-                json.dump(cache, cache_file)
+            if force or os.path.exists(self.cache_file_name):
+                with open(self.cache_file_name, 'w') as cache_file:
+                    cache = {
+                        'devices': self.devices,
+                        'services': self.services,
+                        'alerts': self.alerts,
+                        'users': self.users,
+                        'notifications': self.notifications,
+                        }
+                    json.dump(cache, cache_file)
 
     def cache_reset(self):
         if self.cache_file_name and os.path.exists(self.cache_file_name):
@@ -353,13 +357,21 @@ class ActionModule(object):
                 return
             path = 'inventory/devices/' + deviceId
 
-        sd_host = self._request(path, data)
+        device = self._request(path, data)
 
-        if not deviceId:
-            self.devices.append(sd_host)
+        if deviceId:
+            for old_device in self.devices:
+                if old_device.get('hostname') == hostname:
+                    self.devices.remove(old_device)
+        self.devices.append(device)
+        self.cache_update(False)
 
-        host = self.runner.inventory._hosts_cache[hostname]
-        host.set_variable('sd_agent_key', sd_host.get('agentKey'))
+        if hostname in self.runner.inventory._hosts_cache:
+            host = self.runner.inventory._hosts_cache[hostname]
+            host.set_variable('sd_agent_key', device.get('agentKey'))
+        if hostname in self.runner.inventory._vars_per_host:
+            hostvars = self.runner.inventory._vars_per_host.get(hostname)
+            hostvars.__setitem__('sd_agent_key', device.get('agentKey'))
 
     def ensure_service(self, servicename, service):
         serviceId = self._get_service_id(servicename)
