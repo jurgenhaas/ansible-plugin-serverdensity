@@ -22,6 +22,7 @@ There are plugin parameters to define how the plugin will behave:
 **force** (optional, defaults to False): If an object already exists whether it should be updated
 **cache** (optional, defaults to None): Fully qualified filename for a cache of der Server Density data
 **cleanup** (optional, defaults to False): Decides if undefined alerts in your Ansible inventory available at Server Density should be deleted
+**readonly** (optional, defaults to False): If set to True it will only read the current settings from SD and stores them in a temporary file and does nothing else. This is useful when you want to find out some variable names for alerts or similar things
 
 ##Installation##
 

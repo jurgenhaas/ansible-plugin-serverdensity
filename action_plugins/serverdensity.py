@@ -44,10 +44,20 @@ class ActionModule(object):
         self.force_update = args.get('force', False)
         self.cache_file_name = args.get('cache', None)
         cleanup = args.get('cleanup', False)
+        just_download = args.get('readonly', False)
+
+        if just_download:
+          self.force_update = False
+          self.cache_file_name = os.tmpnam()
+          cleanup = False
 
         result = {}
 
         self.list_all()
+
+        if just_download:
+          vv('Downloaded settings to %s' % self.cache_file_name)
+          return
 
         services = {}
         devicegroup_alerts = {}
