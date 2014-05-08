@@ -1,6 +1,7 @@
 import json
 import os
 import requests
+import tempfile
 
 from ansible.callbacks import vv
 from ansible.errors import AnsibleError as ae
@@ -48,7 +49,7 @@ class ActionModule(object):
 
         if just_download:
           self.force_update = False
-          self.cache_file_name = os.tmpnam()
+          self.cache_file_name = tempfile.mktemp(prefix='sd_', suffix='.json')
           cleanup = False
 
         result = {}
@@ -57,7 +58,7 @@ class ActionModule(object):
 
         if just_download:
           vv('Downloaded settings to %s' % self.cache_file_name)
-          return
+          return ReturnData(conn=conn, comm_ok=True, result=result)
 
         services = {}
         devicegroup_alerts = {}
@@ -200,7 +201,11 @@ class ActionModule(object):
         decoder = json.JSONDecoder()
         content = decoder.decode(request_result.content)
         if request_result.status_code != 200:
-            raise ae('%s' % content['message'])
+            msg = content['message']
+            if content['errors']:
+              for error in content['errors']:
+                msg += ' // ' + error['description']
+            raise ae('%s' % msg)
         return content
 
     def _get_device_id(self, hostname):
