@@ -180,7 +180,7 @@ class ActionModule(object):
             for key in data:
                 item = data.get(key)
                 if type(item) is list or type(item) is dict:
-                    if len(item) > 0:
+                    if len(item) > 0 or key == 'recipients':
                         item = encoder.encode(item)
                 if type(item) is int or type(item) is unicode or type(item) is bool:
                     item = str(item)
