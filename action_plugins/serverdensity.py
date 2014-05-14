@@ -208,6 +208,12 @@ class ActionModule(object):
             raise ae('%s' % msg)
         return content
 
+    def _get_device(self, hostname):
+        for host in self.devices:
+            if host.get('hostname') == hostname:
+                return host
+        return False
+
     def _get_device_id(self, hostname):
         for host in self.devices:
             if host.get('hostname') == hostname:
@@ -362,6 +368,7 @@ class ActionModule(object):
             'swapSpace': swapSpace,
             'location': location,
             'provider': provider,
+            'agentKey': None,
             }
         deviceId = self._get_device_id(hostname)
         if not deviceId:
@@ -371,13 +378,17 @@ class ActionModule(object):
             if not self.force_update:
                 return
             path = 'inventory/devices/' + deviceId
+            device = self._get_device(hostname)
+            for key in data:
+                value = data.get(key) or device.get(key)
+                data.__setitem__(key, value)
 
         device = self._request(path, data)
 
         if deviceId:
-            for old_device in self.devices:
-                if old_device.get('hostname') == hostname:
-                    self.devices.remove(old_device)
+            old_device = self._get_device(hostname)
+            if old_device:
+                self.devices.remove(old_device)
         self.devices.append(device)
         self.cache_update(False)
 
