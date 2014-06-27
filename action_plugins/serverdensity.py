@@ -43,7 +43,7 @@ class ActionModule(object):
         self.api_token = args.get('api_token')
 
         self.force_update = args.get('force', False)
-        self.cache_file_name = args.get('cache', None)
+        self.cache_file_name = args.get('cache', False)
         cleanup = args.get('cleanup', False)
         just_download = args.get('readonly', False)
 
@@ -199,7 +199,10 @@ class ActionModule(object):
             raise ae('No result from ServerDensity API')
 
         decoder = json.JSONDecoder()
-        content = decoder.decode(request_result.content)
+        if request_result.content == '':
+            content = []
+        else:
+            content = decoder.decode(request_result.content)
         if request_result.status_code != 200:
             msg = content['message']
             if content['errors']:
@@ -334,7 +337,7 @@ class ActionModule(object):
         self.cache_update(True)
 
     def cache_update(self, force):
-        if self.cache_file_name:
+        if self.cache_file_name and self.cache_file_name != 'False':
             if force or os.path.exists(self.cache_file_name):
                 with open(self.cache_file_name, 'w') as cache_file:
                     cache = {
