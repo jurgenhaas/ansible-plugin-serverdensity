@@ -131,6 +131,7 @@ class ActionModule(object):
                 for alertname in alerts:
                     vv('- - - ' + alertname)
                     alert = alerts.get(alertname)
+                    alert.__setitem__('host', host)
                     self.ensure_alert(alert, 'device')
 
         vv('Ensure device group alerts...')
@@ -206,8 +207,11 @@ class ActionModule(object):
         if request_result.status_code != 200:
             msg = content['message']
             if content['errors']:
-              for error in content['errors']:
-                msg += ' // ' + error['description']
+                for error in content['errors']:
+                    if error['message']:
+                        msg += ' // ' + error['message']
+                    if error['description']:
+                        msg += ' // ' + error['description']
             raise ae('%s' % msg)
         return content
 
