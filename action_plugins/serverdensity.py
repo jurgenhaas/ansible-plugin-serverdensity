@@ -208,10 +208,13 @@ class ActionModule(object):
             msg = content['message']
             if content['errors']:
                 for error in content['errors']:
-                    if error['message']:
-                        msg += ' // ' + error['message']
-                    if error['description']:
-                        msg += ' // ' + error['description']
+                    try:
+                        if error['message']:
+                            msg += ' // ' + error['message']
+                        if error['description']:
+                            msg += ' // ' + error['description']
+                    except KeyError:
+                        continue
             raise ae('%s' % msg)
         return content
 
