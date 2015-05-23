@@ -37,7 +37,7 @@ class ActionModule(object):
         if complex_args:
             args.update(complex_args)
         args.update(parse_kv(module_args))
-        if not 'api_token' in args:
+        if 'api_token' not in args:
             raise ae("'api_token' is a required argument.")
 
         self.api_token = args.get('api_token')
@@ -48,17 +48,17 @@ class ActionModule(object):
         just_download = args.get('readonly', False)
 
         if just_download:
-          self.force_update = False
-          self.cache_file_name = tempfile.mktemp(prefix='sd_', suffix='.json')
-          cleanup = False
+            self.force_update = False
+            self.cache_file_name = tempfile.mktemp(prefix='sd_', suffix='.json')
+            cleanup = False
 
         result = {}
 
         self.list_all()
 
         if just_download:
-          vv('Downloaded settings to %s' % self.cache_file_name)
-          return ReturnData(conn=conn, comm_ok=True, result=result)
+            vv('Downloaded settings to %s' % self.cache_file_name)
+            return ReturnData(conn=conn, comm_ok=True, result=result)
 
         services = {}
         devicegroup_alerts = {}
@@ -77,7 +77,7 @@ class ActionModule(object):
             if host_services:
                 for host_service in host_services:
                     name = host_service.get('name')
-                    if not services.has_key(name):
+                    if name not in services:
                         services.__setitem__(name, host_service)
 
             host_group = host_vars.get('sd_group')
@@ -88,17 +88,17 @@ class ActionModule(object):
             if host_devicegroup_alerts:
                 for name in host_devicegroup_alerts:
                     host_devicegroup_alert = host_devicegroup_alerts.get(name)
-                    if not devicegroup_alerts.has_key(host_group):
+                    if host_group not in devicegroup_alerts:
                         devicegroup_alerts.__setitem__(host_group, {})
                     alerts = devicegroup_alerts.get(host_group)
-                    if not alerts.has_key(name):
+                    if name not in alerts:
                         alerts.__setitem__(name, host_devicegroup_alert)
                         devicegroup_alerts.__setitem__(host_group, alerts)
 
             host_servicegroup_alerts = host_vars.get('sd_servicegroup_alerts')
             if host_servicegroup_alerts:
                 for name in host_servicegroup_alerts:
-                    if not servicegroup_alerts.has_key(name):
+                    if name not in servicegroup_alerts:
                         host_servicegroup_alert = host_servicegroup_alerts.get(name)
                         servicegroup_alerts.__setitem__(name, host_servicegroup_alert)
 
@@ -121,7 +121,7 @@ class ActionModule(object):
                     'countryCode': location.get('countryCode'),
                     'countryName': location.get('countryName'),
                     'text': location.get('text'),
-                    },
+                },
                 provider=host_vars.get('provider')
             )
 
@@ -208,13 +208,10 @@ class ActionModule(object):
             msg = content['message']
             if content['errors']:
                 for error in content['errors']:
-                    try:
-                        if error['message']:
-                            msg += ' // ' + error['message']
-                        if error['description']:
-                            msg += ' // ' + error['description']
-                    except KeyError:
-                        continue
+                    if error.get('message'):
+                        msg += ' // ' + error['message']
+                    if error.get('description'):
+                        msg += ' // ' + error['description']
             raise ae('%s' % msg)
         return content
 
@@ -282,7 +279,7 @@ class ActionModule(object):
         changed = False
         allgroup = self.runner.inventory.get_group('all')
         allvariables = allgroup.get_variables()
-        if not allvariables.has_key('_serverdensity_' + type):
+        if '_serverdensity_' + type not in allvariables:
             changed = True
             objects = self._request(path)
             allgroup.set_variable('_serverdensity_' + type, objects)
@@ -379,7 +376,7 @@ class ActionModule(object):
             'location': location,
             'provider': provider,
             'agentKey': None,
-            }
+        }
         deviceId = self._get_device_id(hostname)
         if not deviceId:
             path = 'inventory/devices'
@@ -441,7 +438,7 @@ class ActionModule(object):
                     n = {
                         'type': n_type,
                         'id': id,
-                        }
+                    }
                     if actions:
                         n.__setitem__('actions', actions)
                     recipients.append(n)
