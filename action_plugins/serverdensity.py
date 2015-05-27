@@ -67,7 +67,7 @@ class ActionModule(object):
         vv('Ensure hosts...')
         for host in self.runner.host_set:
             vv('- ' + host)
-            host_vars = self.runner.inventory.get_variables(host)
+            host_vars = inject['hostvars'][host]
             facts = host_vars.get('ansible_facts', {})
             location = host_vars.get('location')
             if not location:
