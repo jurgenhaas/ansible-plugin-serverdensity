@@ -177,7 +177,8 @@ class ActionModule(object):
         postData = {}
 
         if data:
-            method = 'POST'
+            if method == 'GET':
+                method = 'POST'
             for key in data:
                 item = data.get(key)
                 if type(item) is list or type(item) is dict:
@@ -194,6 +195,8 @@ class ActionModule(object):
                 request_result = requests.get('https://api.serverdensity.io/' + path, params = {'token': self.api_token})
             elif method == 'POST':
                 request_result = requests.post('https://api.serverdensity.io/' + path, params = {'token': self.api_token}, data = postData)
+            elif method == 'PUT':
+                request_result = requests.put('https://api.serverdensity.io/' + path, params = {'token': self.api_token}, data = postData)
             elif method == 'DELETE':
                 request_result = requests.delete('https://api.serverdensity.io/' + path, params = {'token': self.api_token})
         except ae, e:
@@ -411,12 +414,14 @@ class ActionModule(object):
         if not serviceId:
             path = 'inventory/services'
             self.cache_reset()
+            method = 'POST'
         else:
             if not self.force_update:
                 return
             path = 'inventory/services/' + serviceId
+            method = 'PUT'
 
-        service = self._request(path, service)
+        service = self._request(path, service, method)
 
         if not serviceId:
             self.services.append(service)
