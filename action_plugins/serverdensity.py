@@ -215,6 +215,10 @@ class ActionModule(object):
                         msg += ' // ' + error['message']
                     if error.get('description'):
                         msg += ' // ' + error['description']
+                    if error.get('subject'):
+                        msg += ' // ' + error['subject']
+                    if error.get('type'):
+                        msg += ' // ' + error['type']
             raise ae('%s' % msg)
         return content
 
