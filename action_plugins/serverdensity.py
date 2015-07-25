@@ -332,10 +332,15 @@ class ActionModule(object):
 
     def list_notifications(self):
         if len(self.notifications) == 0:
-            filename = self.runner.inventory.basedir() + '/sd_notifications.json'
-            if os.path.exists(filename):
-                with open(filename, 'r') as content_file:
-                    self.notifications = json.load(content_file)
+            allgroup = self.runner.inventory.get_group('all')
+            allvariables = allgroup.get_variables()
+            if 'sd_notifications' in allvariables:
+                self.notifications = allvariables.get('sd_notifications')
+            else:
+                filename = self.runner.inventory.basedir() + '/sd_notifications.json'
+                if os.path.exists(filename):
+                    with open(filename, 'r') as content_file:
+                        self.notifications = json.load(content_file)
 
     def list_all(self):
         if self.cache_file_name and os.path.exists(self.cache_file_name):
