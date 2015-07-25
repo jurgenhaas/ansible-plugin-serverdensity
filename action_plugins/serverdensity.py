@@ -2,6 +2,7 @@ import json
 import os
 import requests
 import tempfile
+import yaml
 
 from ansible.callbacks import vv
 from ansible.errors import AnsibleError as ae
@@ -58,6 +59,13 @@ class ActionModule(object):
 
         if just_download:
             vv('Downloaded settings to %s' % self.cache_file_name)
+            output = args.get('output', False)
+            if output:
+                if os.path.exists(self.cache_file_name):
+                    with open(self.cache_file_name, 'r') as content_file:
+                        content = json.load(content_file)
+                        with open(output, 'w') as output_file:
+                            yaml.safe_dump(content, output_file, encoding='utf-8', allow_unicode=True)
             return ReturnData(conn=conn, comm_ok=True, result=result)
 
         services = {}
@@ -111,7 +119,7 @@ class ActionModule(object):
                 os={
                     'code': facts.get('ansible_system', '')+' '+facts.get('ansible_distribution', '')+' '+facts.get('ansible_distribution_release', '')+' '+facts.get('ansible_distribution_version', ''),
                     'name': facts.get('ansible_system', ''),
-                    },
+                },
                 # privateIPs=facts[''],
                 # privateDNS=facts[''],
                 publicIPs=facts.get('ansible_all_ipv4_addresses', '')+facts.get('ansible_all_ipv6_addresses', ''),
@@ -357,7 +365,7 @@ class ActionModule(object):
                         'alerts': self.alerts,
                         'users': self.users,
                         'notifications': self.notifications,
-                        }
+                    }
                     json.dump(cache, cache_file)
 
     def cache_reset(self):
