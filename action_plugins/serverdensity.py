@@ -38,34 +38,44 @@ class ActionModule(object):
         if complex_args:
             args.update(complex_args)
         args.update(parse_kv(module_args))
-        if 'api_token' not in args:
-            raise ae("'api_token' is a required argument.")
-
-        self.api_token = args.get('api_token')
+        if 'api_token' in args:
+            self.api_token = args.get('api_token')
+        else:
+            allgroup = self.runner.inventory.get_group('all')
+            allvariables = allgroup.get_variables()
+            if 'sd_api_token' in allvariables:
+                self.api_token = allvariables.get('sd_api_token')
+            else:
+                raise ae("'api_token' is a required argument.")
 
         self.force_update = args.get('force', False)
         self.cache_file_name = args.get('cache', False)
         cleanup = args.get('cleanup', False)
         just_download = args.get('readonly', False)
+        output = args.get('output', False)
 
         if just_download:
             self.force_update = False
             self.cache_file_name = tempfile.mktemp(prefix='sd_', suffix='.json')
             cleanup = False
 
+        if output and self.cache_file_name != 'False':
+            self.cache_file_name = tempfile.mktemp(prefix='sd_', suffix='.json')
+
         result = {}
 
         self.list_all()
 
+        if output:
+            if os.path.exists(self.cache_file_name):
+                vv('Writing upstream settings to %s' % os.path.abspath(output))
+                with open(self.cache_file_name, 'r') as content_file:
+                    content = json.load(content_file)
+                    with open(output, 'w') as output_file:
+                        yaml.safe_dump(content, output_file, encoding='utf-8', allow_unicode=True)
+
         if just_download:
             vv('Downloaded settings to %s' % self.cache_file_name)
-            output = args.get('output', False)
-            if output:
-                if os.path.exists(self.cache_file_name):
-                    with open(self.cache_file_name, 'r') as content_file:
-                        content = json.load(content_file)
-                        with open(output, 'w') as output_file:
-                            yaml.safe_dump(content, output_file, encoding='utf-8', allow_unicode=True)
             return ReturnData(conn=conn, comm_ok=True, result=result)
 
         services = {}

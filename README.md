@@ -23,6 +23,7 @@ There are plugin parameters to define how the plugin will behave:
 * **cache** (optional, defaults to None): Fully qualified filename for a cache of der Server Density data
 * **cleanup** (optional, defaults to False): Decides if undefined alerts in your Ansible inventory available at Server Density should be deleted
 * **readonly** (optional, defaults to False): If set to True it will only read the current settings from SD and stores them in a temporary file and does nothing else. This is useful when you want to find out some variable names for alerts or similar things
+* **output** (optional, defaults to False): If provided, all current settings that are currently set upstream at Server Density will be written in YAML to this file
 
 ##Installation##
 
